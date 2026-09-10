@@ -1,0 +1,50 @@
+[
+    {
+        "image_path": "input/1.png",
+        "extracted_data": {
+            "DocType": "10th Marksheet",
+            "Board": "Board of Secondary Education",
+            "State": "Andhra Pradesh",
+            "DateOfBirth": "",
+            "Name": "",
+            "Result": "Pass",
+            "Month_of_Exam": "MARCH",
+            "Year_of_Exam": "2017"
+        },
+        "token_usage": {
+            "input_tokens": 426,
+            "output_tokens": 89,
+            "total_context_used": 515,
+            "max_context_capacity": 4096
+        },
+        "metrics": {
+            "overall_confidence": 0.9659,
+            "requires_human_review": false,
+            "elapsed_seconds": 13.107382
+        }
+    },
+    {
+        "image_path": "input/2.jpg",
+        "extracted_data": {
+            "DocType": "12th Marksheet",
+            "Board": "Uttar Pradesh Board",
+            "State": "Uttar Pradesh",
+            "DateOfBirth": "",
+            "Name": "",
+            "Result": "PASSED",
+            "Month_of_Exam": "March/April",
+            "Year_of_Exam": "2017"
+        },
+        "token_usage": {
+            "input_tokens": 397,
+            "output_tokens": 90,
+            "total_context_used": 487,
+            "max_context_capacity": 4096
+        },
+        "metrics": {
+            "overall_confidence": 0.9635,
+            "requires_human_review": false,
+            "elapsed_seconds": 20.67134
+        }
+    }
+]
