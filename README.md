@@ -1,54 +1,51 @@
 # Local Document Intelligence
 
-A local document intelligence POC using **Qwen2.5-VL 7B**, **GGUF quantization**, and **llama-cpp-python** to classify documents, extract structured information, estimate generation confidence, and route low-confidence results for human review.
+A local document intelligence POC using **Qwen2.5-VL 7B**, **GGUF quantization**, and **llama-cpp-python** to classify document images, extract structured information, estimate generation confidence, and route low-confidence results for human review.
 
-The project explores how an open-weight Vision-Language Model (VLM) can be used for document processing **without sending document images to an external AI API**.
+The project explores how an open-weight Vision-Language Model (VLM) can be used for document processing without sending document images to an external AI inference API.
 
 ---
 
 ## 🚀 Overview
 
-Traditional document-processing pipelines often combine:
+Traditional document-processing solutions often combine:
 
 - OCR engines
 - Image preprocessing
-- Rule-based extraction
 - Regular expressions
+- Rule-based extraction
 - Document-specific parsers
 - Cloud AI APIs
 
-This project explores a different approach:
+This project explores an alternative architecture where a multimodal VLM performs document understanding and structured extraction locally.
 
 ```text
-Document Image
-      │
-      ▼
-Image Encoding
-      │
-      ▼
-Qwen2.5-VL 7B
-      │
-      ▼
-Structured JSON
-      │
-      ▼
-Token Log Probabilities
-      │
-      ▼
-Confidence Estimation
-      │
-      ▼
- ┌───────────────┐
- │ Confidence    │
- │ Threshold     │
- └───────┬───────┘
-         │
-    ┌────┴─────┐
-    ▼          ▼
- Accept     Human Review
+                    Document Image
+                          │
+                          ▼
+                  Image Encoding
+                          │
+                          ▼
+                  Qwen2.5-VL 7B
+                  Local Inference
+                          │
+                          ▼
+                  Structured JSON
+                          │
+                          ▼
+                Token Log Probabilities
+                          │
+                          ▼
+                 Confidence Estimation
+                          │
+                          ▼
+                  Confidence Threshold
+                     ┌────┴────┐
+                     ▼         ▼
+                  Accept    Human Review
 ```
 
-The objective is not simply to extract text.
+The objective is not simply to extract information.
 
 The objective is to explore:
 
@@ -67,14 +64,12 @@ The system needs to:
 3. Extract relevant fields.
 4. Derive information where required.
 5. Return the result in a predictable JSON structure.
-6. Estimate how confident the model was in its generated output.
+6. Estimate confidence in the generated response.
 7. Route uncertain results for human validation.
 
-This creates an interesting engineering problem.
+Getting an answer from an AI model is relatively easy.
 
-Getting an answer from an LLM is relatively easy.
-
-**Knowing when to trust that answer is harder.**
+Knowing **when to trust that answer** is a more interesting engineering problem.
 
 ---
 
@@ -84,23 +79,23 @@ The current POC uses:
 
 **Qwen2.5-VL 7B Instruct**
 
-The model is used as a multimodal Vision-Language Model capable of processing both:
+The model is a multimodal Vision-Language Model capable of processing:
 
 - Text instructions
 - Document images
 
-The model is loaded locally using GGUF artifacts and `llama-cpp-python`.
+The model is loaded locally using GGUF artifacts through `llama-cpp-python`.
 
 ### Model artifacts
 
-The current setup uses:
+The current setup expects:
 
 ```text
 Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
 mmproj-qwen-2.5-vl-7B-Instruct-F16.gguf
 ```
 
-The model files are intentionally **not included in this repository**.
+Model weights are **not included in this repository**.
 
 ---
 
@@ -109,42 +104,42 @@ The model files are intentionally **not included in this repository**.
 | Component | Technology |
 |---|---|
 | Language | Python |
-| VLM | Qwen2.5-VL 7B Instruct |
+| Vision-Language Model | Qwen2.5-VL 7B Instruct |
 | Model Format | GGUF |
-| Inference | llama.cpp |
+| Inference Runtime | llama.cpp |
 | Python Binding | llama-cpp-python |
-| GPU | NVIDIA 8GB |
+| GPU | NVIDIA 16GB |
 | CUDA | CUDA 13.1 |
 | Output | Structured JSON |
-| Confidence | Token-level log probabilities |
+| Confidence Signal | Token-level log probabilities |
 | Runtime | Local / Offline |
 
 ---
 
 # 🔐 Why Local Inference?
 
-One of the motivations behind this project is exploring document processing where sensitive documents should not necessarily leave the organization's controlled environment.
+One of the motivations behind this project is exploring document processing where sensitive documents should remain within an organization's controlled environment.
 
-A local inference architecture can provide:
+Local inference can provide:
 
 - Reduced external data exposure
 - No dependency on an external inference API
 - Greater control over model execution
 - Predictable infrastructure costs
 - Ability to experiment with open-weight models
-- Potential for deployment inside controlled enterprise environments
+- Potential deployment inside controlled enterprise environments
 
-This does **not** automatically make the solution secure.
+However, **local inference does not automatically make a solution secure**.
 
 A production implementation would still require appropriate:
 
-- Access control
+- Authentication and authorization
 - Encryption
+- Input validation
+- Network controls
 - Data retention policies
 - Audit logging
 - Model governance
-- Input validation
-- Network controls
 - Privacy controls
 
 ---
@@ -154,45 +149,46 @@ A production implementation would still require appropriate:
 The current implementation follows this flow:
 
 ```text
-             ┌─────────────────┐
-             │ Document Image  │
-             └────────┬────────┘
-                      │
-                      ▼
-             ┌─────────────────┐
-             │ Base64 / Image   │
-             │ Data URI         │
-             └────────┬────────┘
-                      │
-                      ▼
-             ┌─────────────────┐
-             │ Qwen2.5-VL 7B   │
-             │ Local Inference  │
-             └────────┬────────┘
-                      │
-                      ▼
-             ┌─────────────────┐
-             │ Structured JSON │
-             └────────┬────────┘
-                      │
-             ┌────────▼────────┐
-             │ Token Logprobs  │
-             └────────┬────────┘
-                      │
-                      ▼
-             ┌─────────────────┐
-             │ Confidence      │
-             │ Estimation      │
-             └────────┬────────┘
-                      │
-                ┌─────▼─────┐
-                │ Threshold │
-                │   Check   │
-                └─────┬─────┘
-                      │
-              ┌───────┴────────┐
-              ▼                ▼
-          Accepted         Human Review
+              ┌────────────────────┐
+              │   Document Image   │
+              └─────────┬──────────┘
+                        │
+                        ▼
+              ┌────────────────────┐
+              │ Base64 / Image URI │
+              └─────────┬──────────┘
+                        │
+                        ▼
+              ┌────────────────────┐
+              │   Qwen2.5-VL 7B   │
+              │   Local Inference  │
+              └─────────┬──────────┘
+                        │
+                        ▼
+              ┌────────────────────┐
+              │  Structured JSON   │
+              └─────────┬──────────┘
+                        │
+                        ▼
+              ┌────────────────────┐
+              │  Token Logprobs    │
+              └─────────┬──────────┘
+                        │
+                        ▼
+              ┌────────────────────┐
+              │    Confidence      │
+              │    Estimation      │
+              └─────────┬──────────┘
+                        │
+                        ▼
+                 ┌──────────────┐
+                 │   Threshold  │
+                 │     Check    │
+                 └──────┬───────┘
+                        │
+                  ┌─────┴─────┐
+                  ▼           ▼
+              Accepted    Human Review
 ```
 
 ---
@@ -201,14 +197,16 @@ The current implementation follows this flow:
 
 The model receives the document image together with an extraction instruction.
 
-The prompt asks the model to:
+The prompt instructs the model to:
 
 - Classify the document
 - Extract required information
 - Derive information where required
 - Populate the expected JSON structure
 
-This allows the same VLM to perform both **visual understanding and structured extraction**.
+This allows the same VLM to perform both:
+
+**Visual understanding + structured extraction**
 
 ---
 
@@ -216,11 +214,11 @@ This allows the same VLM to perform both **visual understanding and structured e
 
 The inference request uses JSON output mode.
 
-Conceptually:
+Conceptually, a result can look like:
 
 ```json
 {
-  "document_type": "...",
+  "document_type": "marksheet",
   "student_name": "...",
   "roll_number": "...",
   "subjects": [],
@@ -229,25 +227,25 @@ Conceptually:
 }
 ```
 
-The actual schema is defined by the project prompt and can be extended for other document types.
+The actual extraction structure is defined by the project prompt.
 
-Structured output makes the result easier to integrate with downstream systems.
+Structured output makes the model response easier to validate and integrate with downstream systems.
 
 ---
 
 # 📊 Confidence Estimation
 
-One of the interesting parts of this POC is the use of **token-level log probabilities**.
+A key part of this POC is experimenting with **token-level log probabilities**.
 
-The model returns log probability information for generated tokens.
+The model provides log probability information for generated tokens.
 
-The implementation converts the log probabilities into probabilities:
+The implementation converts each log probability into a probability:
 
 ```text
 probability = exp(log_probability)
 ```
 
-and calculates an average across the generated tokens.
+An average is then calculated across the generated tokens to produce an **overall generation-confidence signal**.
 
 Conceptually:
 
@@ -256,20 +254,18 @@ Token 1 → 0.98
 Token 2 → 0.99
 Token 3 → 0.94
 Token 4 → 0.97
-...
-             │
-             ▼
-      Average probability
-             │
-             ▼
-     Generation confidence
+   ...
+     │
+     ▼
+Average token probability
+     │
+     ▼
+Generation confidence
 ```
 
-The current implementation therefore produces an **overall generation-confidence signal**.
+## Important distinction
 
-### Important distinction
-
-This value should **not** be interpreted as:
+The confidence value should **not** be interpreted as:
 
 > "The model is 96% accurate."
 
@@ -277,7 +273,9 @@ Instead, it represents:
 
 > **Average confidence derived from the model's token probabilities for the generated response.**
 
-This distinction is important because confidence and actual extraction accuracy are different measurements.
+Confidence and actual extraction accuracy are different measurements.
+
+A future version of the project will evaluate the relationship between model confidence and actual correctness using a labelled dataset.
 
 ---
 
@@ -285,31 +283,33 @@ This distinction is important because confidence and actual extraction accuracy 
 
 The POC uses a configurable confidence threshold.
 
-Current example:
+The current example uses:
 
 ```text
 confidence threshold = 0.95
 ```
 
-Conceptually:
+The decision flow is:
 
 ```text
-             Model Output
-                  │
-                  ▼
-          Confidence Score
-                  │
-          ┌───────┴────────┐
-          │                │
-       >= 0.95          < 0.95
-          │                │
-          ▼                ▼
-       Accept          Human Review
+                  Model Output
+                       │
+                       ▼
+               Generation Confidence
+                       │
+                ┌──────┴──────┐
+                │             │
+              >= 0.95       < 0.95
+                │             │
+                ▼             ▼
+             Accept       Human Review
 ```
 
-This creates a basic human-in-the-loop pattern.
+The purpose is not to eliminate human review.
 
-Instead of assuming every model response is correct, the system can identify outputs that require additional validation.
+The purpose is to identify outputs that are more likely to require additional validation.
+
+This provides a basic **human-in-the-loop AI pattern**.
 
 ---
 
@@ -319,11 +319,16 @@ In the initial test cases, the implementation produced approximately:
 
 > **~96% average generation confidence**
 
-This is an initial POC observation rather than a benchmark.
+This is an initial POC observation and **not a benchmark**.
 
-It should **not** be presented as OCR accuracy or field-level extraction accuracy.
+It should not be presented as:
 
-A proper evaluation would require a labelled dataset and comparison against ground truth.
+- OCR accuracy
+- Extraction accuracy
+- Field-level accuracy
+- Model accuracy
+
+A proper accuracy measurement requires a labelled dataset and comparison against ground truth.
 
 ---
 
@@ -331,17 +336,17 @@ A proper evaluation would require a labelled dataset and comparison against grou
 
 A production-quality evaluation should measure more than model confidence.
 
-Future evaluation should include:
-
-### Extraction accuracy
+## 1. Extraction Accuracy
 
 ```text
-Correct fields / Total fields
+Correct fields
+──────────────
+Total fields
 ```
 
-### Field-level accuracy
+## 2. Field-Level Accuracy
 
-Measure accuracy independently for:
+Accuracy should eventually be measured independently for fields such as:
 
 - Name
 - Roll number
@@ -352,13 +357,15 @@ Measure accuracy independently for:
 - Dates
 - Other document-specific fields
 
-### Document classification accuracy
+## 3. Document Classification Accuracy
 
 ```text
-Correct classifications / Total documents
+Correct classifications
+────────────────────────
+Total documents
 ```
 
-### Confidence calibration
+## 4. Confidence Calibration
 
 Compare:
 
@@ -372,19 +379,17 @@ This is particularly important.
 
 A model that is highly confident when it is wrong can be more dangerous than a model that is consistently uncertain.
 
-### Human-review rate
+## 5. Human Review Rate
 
 Measure:
 
 ```text
 Documents requiring review
-/
+──────────────────────────
 Total documents
 ```
 
-The goal is not necessarily to eliminate human review.
-
-The goal is to send **the right documents to human reviewers**.
+The objective is to send the **right documents** to human reviewers rather than simply minimizing the review rate.
 
 ---
 
@@ -401,7 +406,7 @@ The POC captures execution information including:
 - Image being processed
 - Errors encountered
 
-This provides the foundation for future operational monitoring.
+These metrics provide a foundation for future operational monitoring.
 
 A production implementation could additionally capture:
 
@@ -429,83 +434,84 @@ The current implementation is intentionally a POC.
 A production architecture could evolve into:
 
 ```text
-                    ┌──────────────────────┐
-                    │     Client / API     │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ Document Validation  │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ Image Pre-processing │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ VLM Inference Layer  │
-                    │   Qwen2.5-VL 7B     │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ Structured Extraction│
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ Schema Validation    │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │ Confidence Engine    │
-                    └──────────┬───────────┘
-                               │
-                   ┌───────────┴───────────┐
-                   ▼                       ▼
-             Auto Accepted             Human Review
-                   │                       │
-                   └───────────┬───────────┘
-                               ▼
-                    ┌──────────────────────┐
-                    │ Downstream Systems   │
-                    └──────────────────────┘
+                 ┌──────────────────────┐
+                 │      Client / API    │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ Document Validation  │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ Image Pre-processing │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │  VLM Inference Layer │
+                 │    Qwen2.5-VL 7B    │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ Structured Extraction│
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │   Schema Validation  │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │  Confidence Engine   │
+                 └──────────┬───────────┘
+                            │
+                   ┌────────┴────────┐
+                   ▼                 ▼
+             Auto Accepted       Human Review
+                   │                 │
+                   └────────┬────────┘
+                            ▼
+                 ┌──────────────────────┐
+                 │  Downstream Systems  │
+                 └──────────────────────┘
 ```
 
-Cross-cutting production concerns would include:
+Cross-cutting production concerns include:
 
-```text
-Security
-Audit
-Observability
-Model Governance
-Access Control
-Data Protection
-Scalability
-Cost Management
-```
+- Security
+- Access control
+- Data protection
+- Auditability
+- Observability
+- Model governance
+- Scalability
+- Cost management
+
+See [`docs/architecture.md`](docs/architecture.md) for more detail.
+
 
 ---
 
-# 🖥️ Hardware
+# 🖥️ Development Environment
 
-The current development environment was built around:
+The current development environment is:
 
 ```text
 OS       : Windows 11
-GPU      : NVIDIA 
-VRAM     : 8 GB
+GPU      : NVIDIA RTX 
+VRAM     : 16 GB
 RAM      : 32 GB
 CUDA     : 13.1
 Python   : 3.14.5
 ```
 
-`llama-cpp-python` was built locally for this environment with GPU support.
+`llama-cpp-python` was built locally with GPU support for this environment.
 
-This is useful for experimenting with local inference rather than depending on a cloud-hosted model.
+The project therefore provides an opportunity to experiment with the **AI inference layer itself**, rather than only consuming a cloud-hosted AI API.
 
 ---
 
@@ -518,11 +524,10 @@ local-document-intelligence/
 ├── LICENSE
 ├── .gitignore
 ├── requirements.txt
-├── pyproject.toml
 ├── .env.example
 │
 ├── src/
-│   ├── marksheet_ocr.py
+│   ├── marksheet-ocr.py
 │   └── prompts/
 │       └── marksheet_ocr_sys.txt
 │
@@ -532,17 +537,15 @@ local-document-intelligence/
 ├── output/
 │   └── .gitkeep
 │
-│
 ├── examples/
 │   └── sample_output.json
 │
 ├── docs/
 │   ├── architecture.md
-│   |
-|   ├── evaluation.md
+│   ├── evaluation.md
+│   
 │
 └── tests/
-    └── .gitkeep
 ```
 
 ---
@@ -552,11 +555,9 @@ local-document-intelligence/
 ## 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/neruameya/local-document-intelligence.git
 cd local-document-intelligence
 ```
-
----
 
 ## 2. Create a virtual environment
 
@@ -570,21 +571,15 @@ Activate it on Windows:
 .venv\Scripts\activate
 ```
 
----
-
 ## 3. Install dependencies
-
-Install the project's Python dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-For the local GPU environment, install the `llama-cpp-python` wheel built for your CUDA/Python environment.
+For the local GPU environment, `llama-cpp-python` needs to be installed using a build/wheel compatible with the local Python, CUDA, and GPU environment.
 
-The model itself is **not included in this repository**.
-
----
+The model weights are not included in this repository.
 
 ## 4. Configure environment variables
 
@@ -604,23 +599,27 @@ Example:
 
 ```text
 PROJECT_ROOT_PATH=D:/workspace/ai/local-document-intelligence
-MODEL_ROOT_PATH=D:/models/qwen
+MODEL_ROOT_PATH=D:/models/vision/qwen2.5
 ```
+
+Adjust the paths for your local environment.
 
 ---
 
 # 🧠 Model Setup
 
-Download the appropriate Qwen2.5-VL GGUF model artifacts separately and place them in your configured model directory.
+Download the appropriate Qwen2.5-VL GGUF artifacts separately.
 
-Expected files:
+The current implementation expects:
 
 ```text
 Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
 mmproj-qwen-2.5-vl-7B-Instruct-F16.gguf
 ```
 
-Do not commit model weights to GitHub.
+Place them in the configured model directory.
+
+**Do not commit model weights to GitHub.**
 
 ---
 
@@ -635,16 +634,16 @@ input/
 Then execute:
 
 ```bash
-python src/marksheet_ocr.py
+python src/marksheet-ocr.py
 ```
 
-The application processes the images and generates a timestamped JSON result under:
+The application processes the images and generates timestamped JSON results under:
 
 ```text
 output/
 ```
 
-The result contains information such as:
+A result is conceptually structured like:
 
 ```json
 {
@@ -661,7 +660,7 @@ The result contains information such as:
 }
 ```
 
-Values shown above are illustrative.
+The values above are illustrative.
 
 ---
 
@@ -669,7 +668,7 @@ Values shown above are illustrative.
 
 This repository is intended for experimentation and learning.
 
-Do not commit:
+Do **not** commit:
 
 - Real marksheets
 - Personal information
@@ -683,6 +682,8 @@ Do not commit:
 - Model weights
 
 Use synthetic or appropriately redacted documents for demonstrations.
+
+The fact that inference is performed locally does not remove the need for normal application security controls.
 
 ---
 
@@ -699,15 +700,16 @@ Current limitations include:
 - Field-level confidence mapping can be improved.
 - Document preprocessing can be expanded.
 - Schema validation can be strengthened.
-- Human-review workflow is currently conceptual/basic.
+- Human-review workflow is currently basic.
 - No distributed inference architecture.
 - No production authentication/authorization layer.
 - No persistent audit store.
 - No model-serving API layer.
 
-These limitations are intentional opportunities for future development.
+These limitations represent opportunities for future development.
 
 ---
+
 
 # 💡 What This Project Demonstrates
 
@@ -716,7 +718,7 @@ This project is less about building another OCR application and more about explo
 It demonstrates concepts around:
 
 - Vision-Language Models
-- Local LLM inference
+- Local AI inference
 - GGUF quantization
 - llama.cpp
 - GPU acceleration
@@ -733,13 +735,23 @@ It demonstrates concepts around:
 
 # 🎓 Learning Objective
 
-The project is also an experiment in understanding how modern AI systems can fit into traditional enterprise architecture.
+The broader objective is to understand how modern AI systems can fit into traditional enterprise architecture.
 
-The broader question is:
+The question being explored is:
 
 > **How can an enterprise architect move from simply consuming AI APIs to understanding and designing the AI inference layer itself?**
 
 This project provides a practical environment for exploring that question using locally hosted open-weight models.
+
+---
+
+# 📚 Documentation
+
+Additional design documentation:
+
+- [`Architecture`](docs/architecture.md)
+- [`Evaluation`](docs/evaluation.md)
+
 
 ---
 
@@ -757,4 +769,4 @@ All demonstrations should use synthetic or appropriately redacted documents.
 
 This project is licensed under the MIT License.
 
-See [LICENSE](LICENSE) for details.
+See [`LICENSE`](LICENSE) for details.
